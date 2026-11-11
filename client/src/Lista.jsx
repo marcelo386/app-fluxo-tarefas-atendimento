@@ -47,7 +47,11 @@ export function Lista({
       onDragOver={(e) => { e.preventDefault(); apontar(null); }}
       onDrop={(e) => {
         e.preventDefault();
-        aoSoltar(lista.id, e.dataTransfer.getData("text/plain"));
+        const tipos = Array.from(e.dataTransfer.types);
+        const cartaoId = tipos.includes("application/x-fluxo-cartao")
+          ? e.dataTransfer.getData("application/x-fluxo-cartao")
+          : null;
+        aoSoltar(lista.id, cartaoId);
       }}
     >
       <header className="lista-topo">

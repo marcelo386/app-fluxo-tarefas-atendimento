@@ -35,14 +35,14 @@ export function TelaQuadro({
   };
 
   const soltar = (listaId, cartaoArrastadoId) => {
-    // O estado do React pode já ter sido limpo pelo dragend; a carga nativa
-    // do drop identifica o cartão que realmente foi solto.
-    const cartaoId = cartaoArrastadoId || arrastando;
+    // A carga nativa identifica o cartão mesmo se o estado já foi limpo pelo dragend.
+    const cartaoId = cartaoArrastadoId;
     setArrastando(null);
     setApontado(null);
     setListaAlvo(null);
-    if (!cartaoId) return;
+    if (!cartaoId || !listas.some((l) => l.cards?.some((c) => c.id === cartaoId))) return;
     const lista = listas.find((l) => l.id === listaId);
+    if (!lista) return;
     const semCartao = (lista?.cards ?? []).filter((c) => c.id !== cartaoId);
     aoSoltarCartao(cartaoId, listaId, posicaoDeDestino(semCartao, apontado));
   };
