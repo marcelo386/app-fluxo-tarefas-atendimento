@@ -79,6 +79,13 @@ const MIGRACOES = [
    INSERT INTO ticket_message (id, ticket_id, author, content, created_at) VALUES
      ('msg-boas-vindas-1', 'ticket-boas-vindas', 'user', 'Como movo um cartão entre listas?', '2026-11-10T10:00:00.000Z'),
      ('msg-boas-vindas-2', 'ticket-boas-vindas', 'agent', 'Arraste o cartão até a lista de destino e solte onde quiser que ele fique. Também dá para usar o menu do cartão e escolher "Mover para".', '2026-11-10T10:01:00.000Z');`,
+  // Atendimento <-> GitHub: cada ticket guarda a issue que o Copilot usa, o requestId, o PR, a fase
+  // e os ids das mensagens do N1 já publicadas no app (JSON). Só colunas novas, sem apagar nada.
+  `ALTER TABLE ticket ADD COLUMN issue_number INTEGER;
+   ALTER TABLE ticket ADD COLUMN request_id TEXT;
+   ALTER TABLE ticket ADD COLUMN pr_number INTEGER;
+   ALTER TABLE ticket ADD COLUMN phase TEXT;
+   ALTER TABLE ticket ADD COLUMN sent_ids TEXT NOT NULL DEFAULT '[]'`,
 ];
 
 /** `caminho` = arquivo do banco; `:memory:` nos testes. */

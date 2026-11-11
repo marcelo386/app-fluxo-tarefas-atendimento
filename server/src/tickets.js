@@ -4,6 +4,7 @@
 import { randomUUID } from "node:crypto";
 import { invalido, naoEncontrado, texto } from "./http.js";
 import { transacao } from "./db.js";
+import { iniciarIssue } from "./github.js";
 
 export const STATUS = ["open", "in_progress", "resolved"];
 export const AUTORES = ["user", "agent"];
@@ -14,7 +15,7 @@ const saidaTicket = (t) => ({
 });
 const saidaMensagem = (m) => ({ id: m.id, ticketId: m.ticket_id, author: m.author, content: m.content, createdAt: m.created_at });
 
-export function rotasDeTickets(app, db) {
+export function rotasDeTickets(app, db, github = { nativo: false }) {
   const buscar = (id) => {
     const t = db.prepare("SELECT * FROM ticket WHERE id = ?").get(id);
     if (!t) throw naoEncontrado("Ticket");
@@ -48,6 +49,7 @@ export function rotasDeTickets(app, db) {
       db.prepare("INSERT INTO ticket (id, title, status, created_at, updated_at) VALUES (?, ?, 'open', ?, ?)").run(id, title, agora, agora);
       return inserirMensagem(id, "user", content);
     });
+    if (github.nativo) void iniciarIssue(db, id, github); // grava requestId/fase já; a rede roda depois
     return { ticket: saidaTicket(buscar(id)), messages: [saidaMensagem(primeira)] };
   });
 

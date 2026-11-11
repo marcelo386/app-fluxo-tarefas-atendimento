@@ -1,0 +1,42 @@
+# Atendimento nativo: atribui a issue origin:app ao Copilot (coordenador) e publica o andamento.
+# Roda sempre a partir da main confiável. Código de PR nunca é executado com credencial:
+# o relatório do PR é lido pela API como dado. Ligue com a variável AGENT_RUNTIME=github-native
+# e desligue o ensaio com AGENT_DRY_RUN=false (o padrão é ensaio).
+name: native-agents
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Número da issue origin:app para retomar
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+# Um de cada vez: evita atribuir duas vezes a mesma issue.
+concurrency:
+  group: native-agents
+  cancel-in-progress: false
+
+jobs:
+  controlar:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'origin:app')
+    steps:
+      - uses: actions/checkout@v4 # sem "ref": pull_request_target já usa a main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/controlador.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_AGENT_TOKEN: ${{ secrets.COPILOT_AGENT_TOKEN }}
+          AGENT_RUNTIME: ${{ vars.AGENT_RUNTIME }}
+          AGENT_DRY_RUN: ${{ vars.AGENT_DRY_RUN || 'true' }}
