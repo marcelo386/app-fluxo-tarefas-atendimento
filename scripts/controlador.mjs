@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import {
-  BOT_CONTROLE, COPILOT_BOT, LABEL_ORIGEM, caminhoDoResultado, gh, lerRequestId,
+  BOT_CONTROLE, LABEL_ORIGEM, caminhoDoResultado, gh, ghTodas, idSeguro, lerRequestId, limparTexto,
   marcaAtribuido, marcaFase, marcaInterno, marcaN1, montarAtribuicao,
 } from "../server/src/github.js";
 
@@ -15,13 +15,19 @@ import {
 export function issueDoEvento(nome, evento) {
   if (nome === "issues") return evento.issue.number;
   if (nome === "workflow_dispatch") return Number(evento.inputs?.issue) || null;
-  const citada = /#(\d+)/.exec(evento.pull_request?.body ?? "");
-  return citada ? Number(citada[1]) : null;
+  return issueCitada(evento.pull_request?.body);
 }
+
+/** Primeira issue citada (#N) no corpo do PR. */
+export const issueCitada = (corpo) => { const m = /#(\d+)/.exec(corpo ?? ""); return m ? Number(m[1]) : null; };
+
+/** Só vale PR aberto pelo Copilot neste repositório (branch copilot/…): PR de terceiros não fala pelo N1. */
+export const ehPrDoCopilot = (pr, repo) => pr?.head?.repo?.full_name === repo && /^copilot\//.test(pr?.head?.ref ?? "");
 
 /** Fase a partir do relatório e do estado do PR. `working` é só andamento. */
 export function faseDoRelatorio(relatorio, pr) {
-  if (pr?.merged_at || (pr && pr.state === "closed")) return "concluido";
+  if (pr?.merged_at) return "concluido";
+  if (pr && pr.state === "closed") return "encerrado"; // fechado sem merge
   if (relatorio?.outcome === "working") return "em-andamento";
   if (relatorio?.outcome === "code") return "pr-aberto";
   return relatorio ? "respondido" : "em-andamento";
@@ -50,13 +56,13 @@ async function main() {
   if (!issue.labels?.some((l) => l.name === LABEL_ORIGEM)) return console.log(`Issue #${numero} não é ${LABEL_ORIGEM}.`);
   const requestId = lerRequestId(issue.body);
   if (!requestId) return console.log(`Issue #${numero} sem requestId.`);
-  const comentarios = await gh(token, "GET", `/repos/${repo}/issues/${numero}/comments?per_page=100`);
+  const comentarios = await ghTodas(token, `/repos/${repo}/issues/${numero}/comments`);
   const meus = comentarios.filter((c) => c.user?.login === BOT_CONTROLE).map((c) => c.body ?? "");
   const jaTem = (marca) => meus.some((b) => b.includes(marca));
   const comentar = (corpo) => gh(token, "POST", `/repos/${repo}/issues/${numero}/comments`, { body: corpo });
 
   // 1) Atribuição ao Copilot: uma vez só (marca de controle ou assignee já presente).
-  const jaAtribuida = jaTem(marcaAtribuido(requestId)) || issue.assignees?.some((a) => a.login === COPILOT_BOT);
+  const jaAtribuida = jaTem(marcaAtribuido(requestId)) || issue.assignees?.some((a) => /^copilot/i.test(a.login));
   if (!jaAtribuida) {
     const corpo = montarAtribuicao({ repo, requestId, issueNumber: numero, title: issue.title, body: issue.body ?? "" });
     await escrever(`atribuiria #${numero} ao Copilot (custom_agent=coordenador) com ${JSON.stringify(corpo.agent_assignment).length} bytes de agent_assignment`, async () => {
@@ -68,9 +74,9 @@ async function main() {
   }
 
   // 2) Andamento: relatório do PR lido como dado.
-  const prs = await gh(token, "GET", `/repos/${repo}/pulls?state=all&per_page=30`);
-  const pr = prs.find((p) => new RegExp(`#${numero}\\b`).test(p.body ?? ""));
-  if (!pr) return console.log("Ainda sem PR para esta issue.");
+  const prs = await ghTodas(token, `/repos/${repo}/pulls?state=all`);
+  const pr = prs.find((p) => issueCitada(p.body) === numero && ehPrDoCopilot(p, repo));
+  if (!pr) return console.log("Ainda sem PR do Copilot para esta issue.");
   let relatorio = null;
   try {
     const arq = await gh(token, "GET", `/repos/${repo}/contents/${caminhoDoResultado(requestId)}?ref=${pr.head.sha}`);
@@ -78,21 +84,30 @@ async function main() {
   } catch { /* relatório ainda não existe */ }
 
   for (const u of relatorio?.updates ?? []) {
-    if (!u?.id || !u.agent) continue;
-    const id = String(u.id);
-    if (!jaTem(marcaInterno(requestId, id)) && typeof u.internalText === "string") {
-      await escrever(`resumo interno ${id} (${u.agent})`, () => comentar(`${marcaInterno(requestId, id)}\n\n**${u.agent}**: ${u.internalText}`));
+    const id = idSeguro(u?.id);
+    if (!id || !u.agent) continue;
+    const interno = limparTexto(u.internalText), publico = limparTexto(u.publicText);
+    if (interno && !jaTem(marcaInterno(requestId, id))) {
+      await escrever(`resumo interno ${id} (${limparTexto(u.agent).slice(0, 40)})`, () => comentar(`${marcaInterno(requestId, id)}
+
+**${limparTexto(u.agent).slice(0, 40)}**: ${interno}`));
     }
-    if (!jaTem(marcaN1(requestId, id)) && typeof u.publicText === "string" && u.publicText.trim()) {
-      await escrever(`mensagem do N1 ${id}`, () => comentar(`${marcaN1(requestId, id)}\n\n${u.publicText.trim()}`));
+    if (publico && !jaTem(marcaN1(requestId, id))) {
+      await escrever(`mensagem do N1 ${id}`, () => comentar(`${marcaN1(requestId, id)}
+
+${publico}`));
     }
   }
-  if (relatorio?.outcome && relatorio.outcome !== "working" && typeof relatorio.publicText === "string" && !jaTem(marcaN1(requestId, "final"))) {
-    await escrever("mensagem final do N1", () => comentar(`${marcaN1(requestId, "final")}\n\n${relatorio.publicText.trim()}`));
+  const final = limparTexto(relatorio?.publicText);
+  if (final && relatorio.outcome !== "working" && !jaTem(marcaN1(requestId, "final"))) {
+    await escrever("mensagem final do N1", () => comentar(`${marcaN1(requestId, "final")}
+
+${final}`));
   }
   const fase = faseDoRelatorio(relatorio, pr);
-  const ultimaFase = [...meus.join("\n").matchAll(/<!-- fase: (\S+)/g)].pop()?.[1];
+  const ultimaFase = meus.map((b) => /^<!-- fase: (\S+)/.exec(b.trimStart())?.[1]).filter(Boolean).pop();
   if (fase !== ultimaFase) await escrever(`fase ${fase}, PR #${pr.number}`, () => comentar(marcaFase(fase, pr.number)));
+
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

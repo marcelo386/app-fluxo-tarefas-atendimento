@@ -20,9 +20,9 @@ permissions:
   issues: write
   pull-requests: read
 
-# Um de cada vez: evita atribuir duas vezes a mesma issue.
+# Um de cada vez POR ISSUE: evita atribuir duas vezes e não descarta eventos de outras issues.
 concurrency:
-  group: native-agents
+  group: native-agents-${{ github.event.issue.number || github.event.pull_request.number || inputs.issue }}
   cancel-in-progress: false
 
 jobs:

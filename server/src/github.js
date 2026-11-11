@@ -75,6 +75,23 @@ export async function gh(token, metodo, caminho, corpo, fetchFn = fetch) {
   return r.status === 204 ? null : r.json();
 }
 
+/** GET paginado (100 por página) até acabar. */
+export async function ghTodas(token, caminho, fetchFn = fetch) {
+  const todas = [];
+  for (let pagina = 1; pagina <= 10; pagina++) {
+    const sep = caminho.includes("?") ? "&" : "?";
+    const itens = await gh(token, "GET", `${caminho}${sep}per_page=100&page=${pagina}`, undefined, fetchFn);
+    todas.push(...itens);
+    if (itens.length < 100) break;
+  }
+  return todas;
+}
+
+/** Texto vindo de relatório/cliente: sem marcadores HTML que forjariam controle. */
+export const limparTexto = (t) => String(t ?? "").replace(/<!--|-->/g, "").trim();
+/** Id de update: só letras, números, ponto, hífen e sublinhado. */
+export const idSeguro = (id) => { const v = String(id ?? "").replace(/[^\w.-]/g, "").slice(0, 40); return v || null; };
+
 // ---------- lado do app ----------
 
 /**
@@ -105,7 +122,7 @@ export async function garantirIssue(db, cfg, ticketId, fetchFn = fetch) {
   const { ticket, issue } = dadosDoTicket(db, ticketId);
   if (ticket.issue_number) return ticket.issue_number;
   if (!cfg.repo || !cfg.token) throw new Error("GITHUB_REPO e GITHUB_ISSUES_TOKEN são necessários");
-  const lista = await gh(cfg.token, "GET", `/repos/${cfg.repo}/issues?labels=${encodeURIComponent(LABEL_ORIGEM)}&state=all&per_page=100`, undefined, fetchFn);
+  const lista = await ghTodas(cfg.token, `/repos/${cfg.repo}/issues?labels=${encodeURIComponent(LABEL_ORIGEM)}&state=all`, fetchFn);
   let numero = lista.find((i) => lerRequestId(i.body) === ticket.request_id)?.number;
   if (!numero) numero = (await gh(cfg.token, "POST", `/repos/${cfg.repo}/issues`, issue, fetchFn)).number;
   db.prepare("UPDATE ticket SET issue_number = ?, phase = 'issue-criada' WHERE id = ?").run(numero, ticketId);
@@ -120,9 +137,11 @@ export function aplicarComentarios(db, ticketId, comentarios) {
   const novas = [];
   let fase = t.phase, pr = t.pr_number;
   for (const c of confiaveis) {
-    const m = /<!-- n1-message: (\S+) -->\s*([\s\S]*)/.exec(c.body ?? "");
+    const corpo = (c.body ?? "").trimStart();
+    const m = /^<!-- n1-message: (\S+) -->\s*([\s\S]*)/.exec(corpo);
     if (m && !enviados.has(m[1]) && m[2].trim()) { enviados.add(m[1]); novas.push(m[2].trim().slice(0, 4000)); }
-    for (const f of (c.body ?? "").matchAll(/<!-- fase: (\S+)(?: pr: (\d+))? -->/g)) { fase = f[1]; pr = f[2] ? Number(f[2]) : pr; }
+    const f = /^<!-- fase: (\S+)(?: pr: (\d+))? -->/.exec(corpo); // só o comentário que COMEÇA com a marca
+    if (f) { fase = f[1]; pr = f[2] ? Number(f[2]) : pr; }
   }
   if (!novas.length && fase === t.phase && pr === t.pr_number) return 0;
   transacao(db, () => {
@@ -138,11 +157,11 @@ export function aplicarComentarios(db, ticketId, comentarios) {
 
 /** Uma rodada: tickets com pedido em andamento (fora o ensaio e os concluídos). */
 export async function sincronizar(db, cfg, fetchFn = fetch) {
-  const abertos = db.prepare("SELECT id FROM ticket WHERE request_id IS NOT NULL AND phase NOT IN ('dry-run', 'concluido')").all();
+  const abertos = db.prepare("SELECT id FROM ticket WHERE request_id IS NOT NULL AND phase NOT IN ('dry-run', 'concluido', 'encerrado')").all();
   for (const { id } of abertos) {
     try {
       const numero = await garantirIssue(db, cfg, id, fetchFn);
-      const comentarios = await gh(cfg.token, "GET", `/repos/${cfg.repo}/issues/${numero}/comments?per_page=100`, undefined, fetchFn);
+      const comentarios = await ghTodas(cfg.token, `/repos/${cfg.repo}/issues/${numero}/comments`, fetchFn);
       aplicarComentarios(db, id, comentarios);
     } catch (e) {
       console.error(`[github] sincronizar ticket ${id}: ${e.message}`);
