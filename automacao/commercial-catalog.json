@@ -1,0 +1,18 @@
+{
+  "produto": "Fluxo (App Fluxo Tarefas)",
+  "descricao": "Quadro de tarefas com quadros, listas e cartões, mais atendimento por tickets.",
+  "recursos": [
+    "Quadros, listas e cartões",
+    "Mover cartões arrastando ou pelo menu",
+    "Descrição nos cartões",
+    "Atendimento por tickets com título e descrição"
+  ],
+  "nao_existe": [
+    "login e contas de usuário",
+    "compartilhamento ou equipes"
+  ],
+  "precos": null,
+  "planos": null,
+  "prazos": null,
+  "observacao": "Preço, planos e prazos não foram definidos. Não inventar: dizer que não há informação e encaminhar a uma pessoa."
+}
