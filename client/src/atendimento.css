@@ -1,0 +1,147 @@
+/* Atendimento: navegação entre áreas, lista de tickets e conversa no estilo chat.
+   Usa os tokens de estilos.css. */
+
+/* ---------- navegação entre áreas ---------- */
+
+.lateral-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: var(--e3);
+  min-height: 40px; padding: var(--e2) var(--e3);
+  background: none; border: 0; border-radius: var(--r2);
+  font-weight: 500; color: var(--secundario); text-align: left; cursor: pointer;
+  transition: background-color 160ms ease-out, color 160ms ease-out;
+}
+.nav-item:hover { background: var(--fundo); color: var(--texto); }
+.nav-item[aria-current="page"] { background: var(--oceano-fraco); color: var(--noite); font-weight: 600; }
+
+/* ---------- lista de tickets na lateral ---------- */
+
+.tickets-lateral { display: flex; flex-direction: column; gap: var(--e3); min-height: 0; }
+.tickets-grupos { display: flex; flex-direction: column; gap: var(--e4); }
+.tickets-grupo { display: flex; flex-direction: column; gap: var(--e1); }
+.tickets-grupo-titulo { font-size: 12px; font-weight: 600; color: var(--secundario); padding: 0 var(--e2); }
+.ticket-escolha { display: flex; align-items: center; gap: var(--e2); }
+.ticket-titulo { overflow: hidden; text-overflow: ellipsis; }
+.ticket-ponto { flex: none; width: 8px; height: 8px; border-radius: var(--r-cheio); background: var(--oceano); }
+.ticket-ponto[data-status="in_progress"] { background: #b7791f; }
+.ticket-ponto[data-status="resolved"] { background: var(--borda-forte); }
+
+/* ---------- conversa ---------- */
+
+.chat {
+  background: var(--superficie);
+  display: flex; flex-direction: column;
+  min-height: 70vh; flex: 1; min-width: 0;
+}
+.chat-topo {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--e4);
+  padding: var(--e3) var(--e6);
+  border-bottom: 1px solid var(--borda);
+}
+.chat-titulo-bloco { display: flex; align-items: center; gap: var(--e3); min-width: 0; }
+.chat-titulo {
+  font-size: var(--titulo-3); color: var(--noite); letter-spacing: -0.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.selo-status {
+  flex: none; font-size: 12px; font-weight: 600; padding: 2px var(--e2);
+  border-radius: var(--r-cheio); background: var(--oceano-fraco); color: var(--oceano-escuro);
+}
+.selo-status[data-status="in_progress"] { background: #fdf3e0; color: #8a5a10; }
+.selo-status[data-status="resolved"] { background: #e8f5ec; color: #1d6b3a; }
+
+.chat-rolagem { flex: 1; overflow-y: auto; min-height: 0; }
+.chat-coluna {
+  width: min(760px, 100%); margin: 0 auto;
+  padding: var(--e6) var(--e4) var(--e4);
+  display: flex; flex-direction: column; gap: var(--e6);
+}
+
+.msg { display: flex; gap: var(--e3); align-items: flex-start; }
+.msg[data-autor="user"] { justify-content: flex-end; }
+.msg-avatar {
+  flex: none; width: 32px; height: 32px; border-radius: var(--r-cheio);
+  display: grid; place-items: center; background: var(--oceano); color: #fff;
+}
+.msg-corpo { min-width: 0; max-width: min(100%, 640px); }
+.msg[data-autor="user"] .msg-corpo { max-width: 80%; }
+.msg-nome { display: flex; gap: var(--e2); align-items: baseline; font-size: var(--meta); font-weight: 600; color: var(--noite); margin-bottom: 2px; }
+.msg-nome time { font-weight: 400; color: var(--secundario); font-size: 12px; font-variant-numeric: tabular-nums; }
+.msg[data-autor="user"] .msg-nome { display: none; }
+.msg-texto { white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty; line-height: 1.6; }
+.msg[data-autor="user"] .msg-texto {
+  background: var(--fundo); border-radius: 18px; padding: var(--e2) var(--e4);
+}
+
+.chat-espera { display: flex; align-items: center; gap: var(--e2); color: var(--secundario); font-size: var(--meta); padding-left: 44px; }
+.pontinhos { display: inline-flex; gap: 3px; }
+.pontinhos i { width: 5px; height: 5px; border-radius: var(--r-cheio); background: var(--secundario); opacity: .4; animation: pulsar 1.2s ease-in-out infinite; }
+.pontinhos i:nth-child(2) { animation-delay: .2s; }
+.pontinhos i:nth-child(3) { animation-delay: .4s; }
+@keyframes pulsar { 40% { opacity: 1; } }
+
+.chat-rodape {
+  position: sticky; bottom: 0; background: var(--superficie);
+  width: min(760px, 100%); margin: 0 auto;
+  padding: var(--e2) var(--e4) var(--e4);
+}
+.chat-aviso { margin: 0 0 var(--e3); }
+.chat-carregando { padding: var(--e6); }
+
+.compositor {
+  display: flex; align-items: flex-end; gap: var(--e2);
+  background: var(--fundo); border: 1px solid var(--borda);
+  border-radius: 26px; padding: var(--e2) var(--e2) var(--e2) var(--e4);
+  transition: border-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.compositor:focus-within { border-color: var(--oceano); box-shadow: 0 0 0 3px rgb(21 84 173 / 15%); }
+.compositor-texto {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent; resize: none;
+  padding: 8px 0; line-height: 1.5; max-height: 200px;
+}
+.compositor-texto::placeholder { color: var(--secundario); opacity: .8; }
+.compositor-enviar {
+  flex: none; width: 36px; height: 36px; border-radius: var(--r-cheio); border: 0;
+  display: grid; place-items: center; background: var(--oceano); color: #fff; cursor: pointer;
+  transition: background-color 160ms ease-out, opacity 160ms ease-out, transform 120ms ease-out;
+}
+.compositor-enviar:hover:not(:disabled) { background: var(--oceano-escuro); }
+.compositor-enviar:active:not(:disabled) { transform: scale(.94); }
+.compositor-enviar:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ticket novo */
+.chat-novo { justify-content: center; }
+.chat-boasvindas {
+  width: min(680px, 100%); margin: 0 auto; padding: var(--e8) var(--e4);
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--e4); text-align: center;
+}
+.chat-boasvindas h1 { font-size: var(--titulo-1); letter-spacing: -0.02em; color: var(--noite); text-wrap: balance; }
+.chat-boasvindas > p { color: var(--secundario); text-wrap: pretty; }
+.chat-selo { align-self: center; width: 52px; height: 52px; border-radius: var(--r-cheio); display: grid; place-items: center; background: var(--oceano-fraco); color: var(--oceano); }
+.ticket-form { display: grid; gap: var(--e4); text-align: left; }
+.ticket-form .campo-entrada { background: var(--fundo); }
+.sugestoes { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--e2); }
+.sugestao {
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--r-cheio);
+  padding: var(--e2) var(--e4); font-size: var(--meta); color: var(--secundario); cursor: pointer;
+  transition: background-color 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out;
+}
+.sugestao:hover { background: var(--fundo); color: var(--texto); border-color: var(--borda-forte); }
+
+@media (min-width: 768px) {
+  .chat { height: 100vh; min-height: 0; }
+  .tickets-lateral { overflow-y: auto; }
+}
+
+@media (max-width: 767px) {
+  .lateral-nav { flex-direction: row; }
+  .nav-item { flex: 1; justify-content: center; }
+  .tickets-lateral { flex-direction: row; align-items: center; overflow-x: auto; }
+  .tickets-grupo-titulo { display: none; }
+  .tickets-grupos, .tickets-grupo { display: contents; }
+  .tickets-lateral .lateral-lista { flex-direction: row; }
+  .novo-ticket { width: auto; flex: none; }
+  .ticket-escolha { max-width: 200px; }
+  .chat-topo { padding: var(--e3) var(--e4); flex-wrap: wrap; }
+  .chat-novo { min-height: 60vh; }
+}

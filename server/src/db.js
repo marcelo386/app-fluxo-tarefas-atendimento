@@ -58,6 +58,27 @@ const MIGRACOES = [
      ('card-api', 'list-fazendo', 'Montar a API de quadros', 'Boards, listas e cartões com movimentação entre listas.', 0),
      ('card-paleta', 'list-pronto', 'Escolher a paleta de cores', '', 0),
      ('card-metricas', 'list-backlog', 'Medir tempo por cartão', '', 0);`,
+  // Atendimento: cada ticket é uma conversa; `author` é "user" ou "agent" (agentes autônomos virão depois).
+  `CREATE TABLE ticket (
+     id TEXT PRIMARY KEY,
+     title TEXT NOT NULL,
+     status TEXT NOT NULL DEFAULT 'open',
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE TABLE ticket_message (
+     id TEXT PRIMARY KEY,
+     ticket_id TEXT NOT NULL REFERENCES ticket(id) ON DELETE CASCADE,
+     author TEXT NOT NULL,
+     content TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   );
+   CREATE INDEX ticket_message_ticket ON ticket_message(ticket_id, created_at);
+   INSERT INTO ticket (id, title, status, created_at, updated_at) VALUES
+     ('ticket-boas-vindas', 'Como movo um cartão entre listas?', 'resolved', '2026-11-10T10:00:00.000Z', '2026-11-10T10:01:00.000Z');
+   INSERT INTO ticket_message (id, ticket_id, author, content, created_at) VALUES
+     ('msg-boas-vindas-1', 'ticket-boas-vindas', 'user', 'Como movo um cartão entre listas?', '2026-11-10T10:00:00.000Z'),
+     ('msg-boas-vindas-2', 'ticket-boas-vindas', 'agent', 'Arraste o cartão até a lista de destino e solte onde quiser que ele fique. Também dá para usar o menu do cartão e escolher "Mover para".', '2026-11-10T10:01:00.000Z');`,
 ];
 
 /** `caminho` = arquivo do banco; `:memory:` nos testes. */

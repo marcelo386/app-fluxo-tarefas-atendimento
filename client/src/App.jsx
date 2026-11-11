@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { BarraLateral } from "./BarraLateral.jsx";
+import { ListaTickets } from "./ListaTickets.jsx";
+import { TelaAtendimento } from "./TelaAtendimento.jsx";
 import { TelaQuadro } from "./TelaQuadro.jsx";
+import { useAtendimento } from "./useAtendimento.js";
 import { Botao } from "./componentes/Botao.jsx";
 import { Campo } from "./componentes/Campo.jsx";
 import { Confirmar } from "./componentes/Confirmar.jsx";
@@ -36,7 +39,11 @@ function EstadoVazio({ titulo, descricao, children }) {
   );
 }
 
+const telaInicial = () => (window.location.hash === "#/atendimento" ? "atendimento" : "quadros");
+
 export function App() {
+  const [tela, setTela] = useState(telaInicial);
+  const atendimento = useAtendimento(tela === "atendimento");
   const [quadros, setQuadros] = useState(null);
   const [quadroId, setQuadroId] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
@@ -86,6 +93,11 @@ export function App() {
       });
     return () => { vivo = false; };
   }, [quadroId, tentativa]);
+
+  const mudarTela = (nova) => {
+    setTela(nova);
+    window.history.replaceState(null, "", nova === "atendimento" ? "#/atendimento" : window.location.pathname + window.location.search);
+  };
 
   const recarregar = () => setTentativa((t) => t + 1);
 
@@ -256,6 +268,16 @@ export function App() {
   return (
     <div className="app">
       <BarraLateral
+        tela={tela}
+        aoMudarTela={mudarTela}
+        atendimento={
+          <ListaTickets
+            tickets={atendimento.tickets}
+            ticketId={atendimento.ticketId}
+            aoSelecionar={atendimento.abrir}
+            aoNovo={atendimento.novo}
+          />
+        }
         quadros={quadros}
         quadroId={quadroId}
         aoSelecionar={setQuadroId}
@@ -265,7 +287,21 @@ export function App() {
       />
 
       <main className="canvas">
-        {erro ? (
+        {tela === "atendimento" ? (
+          <TelaAtendimento
+            ticketId={atendimento.ticketId}
+            conversa={atendimento.conversa}
+            enviando={atendimento.enviando}
+            erro={atendimento.erro}
+            aoAbrirTicket={atendimento.abrirTicket}
+            aoEnviar={atendimento.enviar}
+            aoMudarStatus={atendimento.mudarStatus}
+            aoExcluir={atendimento.excluir}
+            aoRecarregar={atendimento.recarregar}
+          />
+        ) : null}
+
+        {tela === "quadros" && erro ? (
           <div className="aviso" role="alert">
             <span className="aviso-texto">
               <Icone nome="alerta" tamanho={18} />
@@ -275,7 +311,7 @@ export function App() {
           </div>
         ) : null}
 
-        {conteudo()}
+        {tela === "quadros" ? conteudo() : null}
       </main>
 
       {dialogo?.tipo === "novo-quadro" ? (

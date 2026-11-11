@@ -82,6 +82,23 @@ const DESENHOS = {
       <circle cx="15" cy="18" r="1.3" />
     </>
   ),
+  chat: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12Z" />,
+  enviar: (
+    <>
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </>
+  ),
+  agente: (
+    <>
+      <rect x="4" y="8" width="16" height="12" rx="3" />
+      <path d="M12 8V4" />
+      <circle cx="12" cy="3.5" r="1" />
+      <path d="M9 14h.01" />
+      <path d="M15 14h.01" />
+    </>
+  ),
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   atualizar: (
     <>
       <path d="M20 12a8 8 0 1 1-2.3-5.6" />
