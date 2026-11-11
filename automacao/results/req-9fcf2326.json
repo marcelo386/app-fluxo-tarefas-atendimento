@@ -1,0 +1,49 @@
+{
+  "requestId": "req-9fcf2326",
+  "outcome": "code",
+  "publicText": "O problema foi corrigido e validado: o cartão permanece na lista de destino após recarregar.",
+  "agents": ["n1", "po", "desenvolvedor", "revisor"],
+  "allowedFiles": [
+    "client/src/Cartao.jsx",
+    "client/src/Lista.jsx",
+    "client/src/TelaQuadro.jsx"
+  ],
+  "criteria": [
+    {
+      "id": "drag-drop-destination",
+      "description": "Um cartão arrastado para outra lista permanece na lista de destino após recarregar o quadro."
+    }
+  ],
+  "updates": [
+    {
+      "id": "n1-entendeu",
+      "agent": "n1",
+      "internalText": "O cartão retorna à lista de origem quando arrastado para outra lista.",
+      "publicText": "Entendemos: o cartão voltava à lista de origem ao ser arrastado."
+    },
+    {
+      "id": "po-criterio",
+      "agent": "po",
+      "internalText": "Critério de aceite: o cartão deve permanecer na lista destino após o quadro ser recarregado.",
+      "publicText": "O resultado esperado é que o cartão permaneça na lista de destino após recarregar."
+    },
+    {
+      "id": "dev-correcao",
+      "agent": "desenvolvedor",
+      "internalText": "O drop passou a usar um payload próprio do app e só move um cartão que existe no quadro atual.",
+      "publicText": "Ajustamos a movimentação do cartão para mantê-lo no quadro."
+    },
+    {
+      "id": "revisor-ok",
+      "agent": "revisor",
+      "internalText": "A revisão aprovou o payload específico, a validação de existência do cartão e o escopo em três arquivos permitidos.",
+      "publicText": "A revisão aprovou a mudança e o comportamento esperado ao soltar o cartão."
+    },
+    {
+      "id": "validacao",
+      "agent": "desenvolvedor",
+      "internalText": "O desenvolvedor reportou npm run build e npm test aprovados (28 testes), além de conferência manual no Chromium após recarregar.",
+      "publicText": "Os testes e a conferência manual confirmaram que o cartão permanece na lista de destino após recarregar."
+    }
+  ]
+}
