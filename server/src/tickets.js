@@ -4,13 +4,14 @@
 import { randomUUID } from "node:crypto";
 import { invalido, naoEncontrado, texto } from "./http.js";
 import { transacao } from "./db.js";
-import { iniciarIssue } from "./github.js";
+import { iniciarIssue, sincronizarTicket } from "./github.js";
 
 export const STATUS = ["open", "in_progress", "resolved"];
 export const AUTORES = ["user", "agent"];
 
 const saidaTicket = (t) => ({
   id: t.id, title: t.title, status: t.status, createdAt: t.created_at, updatedAt: t.updated_at,
+  phase: t.phase ?? null, issueNumber: t.issue_number ?? null, prNumber: t.pr_number ?? null,
   ...(t.preview !== undefined ? { preview: t.preview } : {}),
 });
 const saidaMensagem = (m) => ({ id: m.id, ticketId: m.ticket_id, author: m.author, content: m.content, createdAt: m.created_at });
@@ -56,6 +57,23 @@ export function rotasDeTickets(app, db, github = { nativo: false }) {
   app.get("/api/tickets/:id", ({ params }) => {
     const t = buscar(params.id);
     return { ticket: saidaTicket(t), messages: mensagens(t.id) };
+  });
+
+  // Busca agora, no GitHub, o que o N1 já publicou (comentários da issue e relatório do PR).
+  // A tela chama isto de tempos em tempos enquanto está aberta e no botão "Atualizar".
+  // Limite de 1 busca a cada 2 s por ticket, para não gastar a cota da API do GitHub.
+  const ultimaBusca = new Map();
+  app.post("/api/tickets/:id/sync", async ({ params, estado }) => {
+    const t = buscar(params.id);
+    estado.status = 200;
+    const ativo = github.nativo && !github.dryRun && t.request_id;
+    let novas = 0, erro = null;
+    if (ativo && Date.now() - (ultimaBusca.get(t.id) ?? 0) > 2000) {
+      ultimaBusca.set(t.id, Date.now());
+      try { novas = await sincronizarTicket(db, github, t.id); }
+      catch (e) { erro = "Não foi possível consultar o GitHub agora."; console.error(`[github] sync ${t.id}: ${e.message}`); }
+    }
+    return { ticket: saidaTicket(buscar(t.id)), messages: mensagens(t.id), novas, erro, ativo: Boolean(ativo) };
   });
 
   app.post("/api/tickets/:id/messages", ({ params, corpo }) => {

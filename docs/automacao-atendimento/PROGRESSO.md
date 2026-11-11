@@ -29,3 +29,19 @@
 - **Conferido localmente (dados fictícios, `fetch` falso, sem chamada paga):** ticket criado e lido, relação gravada em modo ensaio, corpo da atribuição, issue criada uma única vez mesmo após erro de rede, mensagem publicada uma só vez, comentário de terceiros ignorado, funções do controlador. `npm test` (28) e `npm run build` OK.
 - **Não conferido:** execução real do workflow, atribuição real ao Copilot, ensaio nas Actions.
 - **Motor antigo:** não existe nesta cópia; nada a suspender.
+
+## Etapa 05: entrega e retomada
+
+- **Fluxo:** o Copilot abre o PR (corpo com `Refs #N`; o controlador troca `Fixes/Closes #N` por `Refs #N` para a issue não fechar sozinha) → Revisor confere → o job `build` (`build.yml`) roda no commit atual → com revisão ok + build verde, `AUTO_MERGE=false` (padrão) deixa o PR para a demonstração e `AUTO_MERGE=true` integra exatamente esse commit, sem bypass das regras da branch → só depois do merge na `main` o N1 publica a resposta (id estável `entrega`, dizendo que o código foi integrado e que o app local precisa de `git pull` e reinício) e a issue é fechada. Dúvida de uso sem código recebe a resposta (`final`) e fecha a issue; esclarecimento pendente (`waiting-customer`) mantém o caso aberto.
+- **Falhas:** build ou revisão (`revisor-falha`) reprovada → o controlador pede UMA correção ao Copilot, no mesmo PR, com o erro curto e o `requestId`. Se falhar de novo, fica `pendente-instrutor` e o instrutor decide. Merge recusado pela branch também vira pendência; nunca há bypass. Falha depois do merge só repete resposta/fechamento.
+- **Retomar:** o controlador não guarda estado próprio; relê issue, comentários e PR e cada mensagem tem id estável, então rodar de novo não duplica nada. Para retomar um caso (ou depois de aprovar manualmente as Actions de um PR do Copilot, ou de um merge manual), use Actions → native-agents → Run workflow com o número da issue. Também reagem sozinhos: build terminado (`workflow_run`), push na `main` (merge) e eventos do PR.
+- **Atenção:** PRs do Copilot exigem aprovação manual das Actions ("Approve workflows to run"), então o `build` e o controlador só rodam nesse PR depois dela.
+- **Conferido (transporte simulado, sem rede):** entrega sem merge, merge do commit conferido, resposta única e fechamento, retomada sem duplicar, mensagem de entrega chegando ao ticket, merge recusado, uma rodada de correção e dúvida de uso sem código.
+- **Não conferido:** execução real do `build.yml` e do novo controlador nas Actions (ainda não enviados ao GitHub).
+
+## Chat ao vivo e respostas reais do N1
+
+- **Sincronia:** com o chat aberto e o ticket em andamento, a tela chama `POST /api/tickets/:id/sync` a cada 6 s (e no botão **Atualizar**). O backend lê os comentários da issue e o relatório JSON do PR do Copilot (como dado, só PR `copilot/…` do repositório) e publica cada update do N1 assim que ele aparece, sem esperar as Actions. A mesma mensagem nunca duplica (chave `requestId:idDoUpdate`, igual à do controlador). Limite de 1 busca a cada 2 s por ticket.
+- **Por que antes chegava tudo no fim:** o coordenador só criava o relatório no último commit. Agora o prompt manda criar o relatório no primeiro marco e rodar `report_progress` a cada marco.
+- **Respostas reais:** o N1 não pode mandar aviso genérico ("recebemos/registramos"); cada mensagem precisa citar o que foi entendido, encontrado ou feito naquele marco. O app não tem nenhuma resposta automática.
+- **Ainda não faz:** mensagens digitadas no chat depois de abrir o ticket ficam só no app; não são enviadas à issue nem ao agente.

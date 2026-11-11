@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
-import { conversaMudou } from "./tickets.js";
+import { conversaMudou, emSincronia } from "./tickets.js";
 
 const INTERVALO_CONVERSA = 3000; // novas respostas de agentes aparecem sem recarregar
 const INTERVALO_LISTA = 8000;
+const INTERVALO_GITHUB = 6000; // busca o que o N1 já publicou na issue/PR, enquanto o chat está aberto
 
 /** Estado do atendimento: lista de tickets, ticket aberto (ou null = novo) e envio de mensagens. */
 export function useAtendimento(ativo) {
@@ -13,6 +14,8 @@ export function useAtendimento(ativo) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState(null);
   const [tentativa, setTentativa] = useState(0);
+  const [atualizando, setAtualizando] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState(null);
   const ticketAtual = useRef(null);
   ticketAtual.current = ticketId;
 
@@ -52,6 +55,44 @@ export function useAtendimento(ativo) {
     const id = setInterval(() => { if (!document.hidden) void buscar(false); }, INTERVALO_CONVERSA);
     return () => { vivo = false; clearInterval(id); };
   }, [ativo, ticketId, tentativa]);
+
+  // Sincronia com o GitHub: enquanto o ticket está em andamento e a aba visível, busca as mensagens do N1 sem recarregar.
+  const sincronizando = emSincronia(conversa?.ticket);
+  const aplicarSync = useCallback((id, dados) => {
+    setConversa((atual) => (atual?.ticket.id === id && !conversaMudou(atual, dados) ? atual : { ticket: dados.ticket, messages: dados.messages }));
+    setAtualizadoEm(new Date());
+  }, []);
+  useEffect(() => {
+    if (!ativo || !ticketId || !sincronizando) return;
+    let vivo = true;
+    const buscar = async () => {
+      if (document.hidden) return;
+      try {
+        const dados = await api.tickets.sincronizar(ticketId);
+        if (vivo) aplicarSync(ticketId, dados);
+      } catch { /* a próxima rodada tenta de novo */ }
+    };
+    void buscar();
+    const id = setInterval(buscar, INTERVALO_GITHUB);
+    return () => { vivo = false; clearInterval(id); };
+  }, [ativo, ticketId, sincronizando, aplicarSync]);
+
+  /** Botão "Atualizar": busca agora. */
+  const atualizar = useCallback(async () => {
+    const id = ticketAtual.current;
+    if (!id) return;
+    setAtualizando(true);
+    try {
+      const dados = await api.tickets.sincronizar(id);
+      aplicarSync(id, dados);
+      if (dados.erro) setErro(dados.erro);
+      void carregarLista();
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setAtualizando(false);
+    }
+  }, [aplicarSync, carregarLista]);
 
   const abrir = useCallback((id) => {
     setErro(null);
@@ -135,5 +176,5 @@ export function useAtendimento(ativo) {
     void carregarLista();
   }, [carregarLista]);
 
-  return { tickets, ticketId, conversa, enviando, erro, abrir, novo, abrirTicket, enviar, mudarStatus, excluir, recarregar };
+  return { tickets, ticketId, conversa, enviando, erro, abrir, novo, abrirTicket, enviar, mudarStatus, excluir, recarregar, atualizar, atualizando, atualizadoEm };
 }

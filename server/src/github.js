@@ -129,42 +129,109 @@ export async function garantirIssue(db, cfg, ticketId, fetchFn = fetch) {
   return numero;
 }
 
-/** Lê os comentários do controlador e publica no ticket as mensagens do N1 ainda não publicadas, mais fase e PR. */
-export function aplicarComentarios(db, ticketId, comentarios) {
+/** Primeira issue citada (#N) no corpo do PR. */
+export const issueCitada = (corpo) => { const m = /#(\d+)/.exec(corpo ?? ""); return m ? Number(m[1]) : null; };
+
+/** Só vale PR aberto pelo Copilot neste repositório (branch copilot/…): PR de terceiros não fala pelo N1. */
+export const ehPrDoCopilot = (pr, repo) => pr?.head?.repo?.full_name === repo && /^copilot\//.test(pr?.head?.ref ?? "");
+
+/** Valida o formato do relatório (dado de fora). Devolve null se não servir. */
+export function lerRelatorio(texto, requestId) {
+  let r;
+  try { r = JSON.parse(texto); } catch { return null; }
+  if (!r || r.requestId !== requestId || typeof r.outcome !== "string" || !Array.isArray(r.updates)) return null;
+  return r;
+}
+
+/**
+ * Publica no ticket as mensagens do N1 ainda não publicadas e atualiza fase/PR, numa transação.
+ * `mensagens` = [{ key: "<requestId>:<idDoUpdate>", content }]. A mesma key vem do relatório do PR e do
+ * comentário do controlador, então a mesma mensagem nunca aparece duas vezes.
+ */
+function publicar(db, ticketId, mensagens, { fase, pr } = {}) {
   const t = db.prepare("SELECT * FROM ticket WHERE id = ?").get(ticketId);
   const enviados = new Set(JSON.parse(t.sent_ids || "[]"));
-  const confiaveis = comentarios.filter((c) => c.user?.login === BOT_CONTROLE); // qualquer um pode comentar numa issue pública
   const novas = [];
-  let fase = t.phase, pr = t.pr_number;
-  for (const c of confiaveis) {
-    const corpo = (c.body ?? "").trimStart();
-    const m = /^<!-- n1-message: (\S+) -->\s*([\s\S]*)/.exec(corpo);
-    if (m && !enviados.has(m[1]) && m[2].trim()) { enviados.add(m[1]); novas.push(m[2].trim().slice(0, 4000)); }
-    const f = /^<!-- fase: (\S+)(?: pr: (\d+))? -->/.exec(corpo); // só o comentário que COMEÇA com a marca
-    if (f) { fase = f[1]; pr = f[2] ? Number(f[2]) : pr; }
+  for (const m of mensagens) {
+    if (enviados.has(m.key) || !m.content) continue;
+    enviados.add(m.key);
+    novas.push(m.content.slice(0, 4000));
   }
-  if (!novas.length && fase === t.phase && pr === t.pr_number) return 0;
+  const novaFase = fase ?? t.phase, novoPr = pr ?? t.pr_number;
+  if (!novas.length && novaFase === t.phase && novoPr === t.pr_number) return 0;
   transacao(db, () => {
     const agora = new Date().toISOString();
     for (const content of novas) {
       db.prepare("INSERT INTO ticket_message (id, ticket_id, author, content, created_at) VALUES (?, ?, 'agent', ?, ?)").run(randomUUID(), ticketId, content, agora);
     }
     db.prepare("UPDATE ticket SET sent_ids = ?, phase = ?, pr_number = ?, updated_at = CASE WHEN ? > 0 THEN ? ELSE updated_at END WHERE id = ?")
-      .run(JSON.stringify([...enviados]), fase, pr, novas.length, agora, ticketId);
+      .run(JSON.stringify([...enviados]), novaFase, novoPr, novas.length, agora, ticketId);
   });
   return novas.length;
 }
 
-/** Uma rodada: tickets com pedido em andamento (fora o ensaio e os concluídos). */
+/** Lê os comentários do controlador e publica no ticket as mensagens do N1 ainda não publicadas, mais fase e PR. */
+export function aplicarComentarios(db, ticketId, comentarios) {
+  const t = db.prepare("SELECT * FROM ticket WHERE id = ?").get(ticketId);
+  const confiaveis = comentarios.filter((c) => c.user?.login === BOT_CONTROLE); // qualquer um pode comentar numa issue pública
+  const mensagens = [];
+  let fase = t.phase, pr = t.pr_number;
+  for (const c of confiaveis) {
+    const corpo = (c.body ?? "").trimStart();
+    const m = /^<!-- n1-message: (\S+) -->\s*([\s\S]*)/.exec(corpo);
+    if (m) mensagens.push({ key: m[1], content: m[2].trim() });
+    const f = /^<!-- fase: (\S+)(?: pr: (\d+))? -->/.exec(corpo); // só o comentário que COMEÇA com a marca
+    if (f) { fase = f[1]; pr = f[2] ? Number(f[2]) : pr; }
+  }
+  return publicar(db, ticketId, mensagens, { fase, pr });
+}
+
+/**
+ * Lê o relatório do PR do Copilot como DADO (sem executar nada) e publica cada update do N1 assim que ele
+ * aparece, ainda durante o trabalho. Depois do merge, a resposta final ("entrega") é do controlador.
+ */
+export async function aplicarRelatorioDoPr(db, cfg, ticketId, fetchFn = fetch) {
+  const t = db.prepare("SELECT * FROM ticket WHERE id = ?").get(ticketId);
+  let pr = t.pr_number ? await gh(cfg.token, "GET", `/repos/${cfg.repo}/pulls/${t.pr_number}`, undefined, fetchFn) : null;
+  if (!pr) {
+    const prs = await ghTodas(cfg.token, `/repos/${cfg.repo}/pulls?state=all`, fetchFn);
+    pr = prs.find((p) => issueCitada(p.body) === t.issue_number && ehPrDoCopilot(p, cfg.repo)) ?? null;
+  }
+  if (!pr || !ehPrDoCopilot(pr, cfg.repo)) return 0;
+  const fase = ["issue-criada", "pendente-issue"].includes(t.phase) ? "em-andamento" : undefined; // o PR já existe: o agente está trabalhando
+  let relatorio = null;
+  if (!pr.merged_at) { // depois do merge o relatório já foi publicado e a entrega é do controlador
+    try {
+      const arq = await gh(cfg.token, "GET", `/repos/${cfg.repo}/contents/${caminhoDoResultado(t.request_id)}?ref=${pr.head.sha}`, undefined, fetchFn);
+      relatorio = lerRelatorio(Buffer.from(arq.content, "base64").toString("utf8"), t.request_id);
+    } catch { /* o relatório ainda não foi criado */ }
+  }
+  const mensagens = [];
+  for (const u of relatorio?.updates ?? []) {
+    const id = idSeguro(u?.id), texto = limparTexto(u?.publicText);
+    if (id && u.agent && texto) mensagens.push({ key: `${t.request_id}:${id}`, content: texto });
+  }
+  const final = limparTexto(relatorio?.publicText); // só sem código; com código a resposta final vem depois do merge
+  if (final && relatorio.outcome !== "code" && relatorio.outcome !== "working") mensagens.push({ key: `${t.request_id}:final`, content: final });
+  return publicar(db, ticketId, mensagens, { fase, pr: pr.number });
+}
+
+/** Sincroniza UM ticket: comentários do controlador + relatório do PR. Devolve quantas mensagens novas chegaram. */
+export async function sincronizarTicket(db, cfg, ticketId, fetchFn = fetch) {
+  const t = db.prepare("SELECT * FROM ticket WHERE id = ?").get(ticketId);
+  if (!t?.request_id || ["dry-run", "concluido", "encerrado"].includes(t.phase)) return 0;
+  const numero = await garantirIssue(db, cfg, ticketId, fetchFn);
+  const comentarios = await ghTodas(cfg.token, `/repos/${cfg.repo}/issues/${numero}/comments`, fetchFn);
+  let novas = aplicarComentarios(db, ticketId, comentarios);
+  novas += await aplicarRelatorioDoPr(db, cfg, ticketId, fetchFn);
+  return novas;
+}
+
+/** Uma rodada em segundo plano: tickets com pedido em andamento (fora o ensaio e os concluídos). */
 export async function sincronizar(db, cfg, fetchFn = fetch) {
   const abertos = db.prepare("SELECT id FROM ticket WHERE request_id IS NOT NULL AND phase NOT IN ('dry-run', 'concluido', 'encerrado')").all();
   for (const { id } of abertos) {
-    try {
-      const numero = await garantirIssue(db, cfg, id, fetchFn);
-      const comentarios = await ghTodas(cfg.token, `/repos/${cfg.repo}/issues/${numero}/comments`, fetchFn);
-      aplicarComentarios(db, id, comentarios);
-    } catch (e) {
-      console.error(`[github] sincronizar ticket ${id}: ${e.message}`);
-    }
+    try { await sincronizarTicket(db, cfg, id, fetchFn); }
+    catch (e) { console.error(`[github] sincronizar ticket ${id}: ${e.message}`); }
   }
 }

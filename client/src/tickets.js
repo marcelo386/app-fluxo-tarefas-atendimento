@@ -6,6 +6,24 @@ export const STATUS = {
   resolved: "Resolvido",
 };
 
+/** Fase do pedido no GitHub (preenchida só quando o ticket está ligado a uma issue). */
+const FASES = {
+  "pendente-issue": "Enviando o pedido ao GitHub",
+  "issue-criada": "Pedido enviado, aguardando o agente",
+  "em-andamento": "Agente trabalhando",
+  "pr-aberto": "Correção em revisão",
+  corrigindo: "Ajustando a correção",
+  "aguardando-merge": "Pronto, aguardando integração",
+  "aguardando-cliente": "Aguardando sua resposta",
+  "pendente-instrutor": "Aguardando o instrutor",
+  respondido: "Respondido",
+  concluido: "Concluído",
+  encerrado: "Encerrado",
+};
+export const rotuloFase = (fase) => FASES[fase] ?? fase;
+/** Ticket ligado ao GitHub e ainda em andamento: vale ficar sincronizando. */
+export const emSincronia = (ticket) => Boolean(ticket?.phase) && !["dry-run", "concluido", "encerrado"].includes(ticket.phase);
+
 export const rotuloStatus = (status) => STATUS[status] ?? status;
 
 const inicioDoDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -40,5 +58,6 @@ export function conversaMudou(antes, depois) {
   if (!antes || !depois) return true;
   const a = antes.messages, b = depois.messages;
   return a.length !== b.length || a[a.length - 1]?.id !== b[b.length - 1]?.id
-    || antes.ticket.status !== depois.ticket.status || antes.ticket.title !== depois.ticket.title;
+    || antes.ticket.status !== depois.ticket.status || antes.ticket.title !== depois.ticket.title
+    || antes.ticket.phase !== depois.ticket.phase;
 }

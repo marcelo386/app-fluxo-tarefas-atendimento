@@ -298,6 +298,9 @@ export function App() {
             aoMudarStatus={atendimento.mudarStatus}
             aoExcluir={atendimento.excluir}
             aoRecarregar={atendimento.recarregar}
+            aoAtualizar={atendimento.atualizar}
+            atualizando={atendimento.atualizando}
+            atualizadoEm={atendimento.atualizadoEm}
           />
         ) : null}
 

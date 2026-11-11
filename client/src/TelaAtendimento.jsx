@@ -3,7 +3,7 @@ import { Botao } from "./componentes/Botao.jsx";
 import { Campo } from "./componentes/Campo.jsx";
 import { Confirmar } from "./componentes/Confirmar.jsx";
 import { Icone } from "./componentes/Icone.jsx";
-import { horaCurta, rotuloStatus } from "./tickets.js";
+import { emSincronia, horaCurta, rotuloFase, rotuloStatus } from "./tickets.js";
 
 const SUGESTOES = [
   "Não consigo mover um cartão entre listas",
@@ -71,7 +71,7 @@ function Mensagem({ mensagem }) {
 }
 
 /** Área principal do atendimento: ticket novo (tela de boas-vindas) ou conversa aberta. */
-export function TelaAtendimento({ ticketId, conversa, enviando, erro, aoAbrirTicket, aoEnviar, aoMudarStatus, aoExcluir, aoRecarregar }) {
+export function TelaAtendimento({ ticketId, conversa, enviando, erro, aoAbrirTicket, aoEnviar, aoMudarStatus, aoExcluir, aoRecarregar, aoAtualizar, atualizando, atualizadoEm }) {
   const [rascunho, setRascunho] = useState("");
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -144,7 +144,9 @@ export function TelaAtendimento({ ticketId, conversa, enviando, erro, aoAbrirTic
   }
 
   const { ticket, messages } = conversa;
-  const aguardando = ticket.status !== "resolved" && messages[messages.length - 1]?.author === "user";
+  const sincronizando = emSincronia(ticket); // ticket ligado a uma issue em andamento
+  const ligado = Boolean(ticket.phase) && ticket.phase !== "dry-run";
+  const aguardando = !sincronizando && ticket.status !== "resolved" && messages[messages.length - 1]?.author === "user";
 
   return (
     <section className="chat" aria-label={`Ticket: ${ticket.title}`}>
@@ -154,6 +156,12 @@ export function TelaAtendimento({ ticketId, conversa, enviando, erro, aoAbrirTic
           <span className="selo-status" data-status={ticket.status}>{rotuloStatus(ticket.status)}</span>
         </div>
         <div className="quadro-acoes">
+          {ligado ? (
+            <button type="button" className="botao botao-suave" onClick={aoAtualizar} disabled={atualizando} title="Buscar agora o que o agente já publicou">
+              <Icone nome="atualizar" tamanho={18} className={atualizando ? "girando" : ""} />
+              Atualizar
+            </button>
+          ) : null}
           {ticket.status === "resolved" ? (
             <Botao onClick={() => aoMudarStatus("open")}>Reabrir</Botao>
           ) : (
@@ -166,6 +174,14 @@ export function TelaAtendimento({ ticketId, conversa, enviando, erro, aoAbrirTic
       <div className="chat-rolagem">
         <div className="chat-coluna" role="log" aria-live="polite" aria-label="Mensagens do ticket">
           {messages.map((m) => <Mensagem key={m.id} mensagem={m} />)}
+          {sincronizando ? (
+            <p className="chat-espera" role="status">
+              <span className="pontinhos" aria-hidden="true"><i /><i /><i /></span>
+              {rotuloFase(ticket.phase)}
+              {ticket.issueNumber ? ` · issue #${ticket.issueNumber}` : ""}
+              {atualizadoEm ? ` · atualizado às ${horaCurta(atualizadoEm.toISOString())}` : ""}
+            </p>
+          ) : null}
           {aguardando ? (
             <p className="chat-espera" role="status">
               <span className="pontinhos" aria-hidden="true"><i /><i /><i /></span>
