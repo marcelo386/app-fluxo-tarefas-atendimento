@@ -22,7 +22,7 @@ export function Cartao({
       data-alvo={apontado ? "" : undefined}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", cartao.id);
+        e.dataTransfer.setData("application/x-fluxo-cartao", cartao.id);
         aoArrastarInicio(cartao.id);
       }}
       onDragEnd={aoArrastarFim}
