@@ -45,7 +45,10 @@ export function Lista({
       aria-label={lista.title}
       data-alvo={listaAlvo ? "" : undefined}
       onDragOver={(e) => { e.preventDefault(); apontar(null); }}
-      onDrop={(e) => { e.preventDefault(); aoSoltar(lista.id); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        aoSoltar(lista.id, e.dataTransfer.getData("text/plain"));
+      }}
     >
       <header className="lista-topo">
         <button type="button" className="lista-nome" onClick={aoRenomear} title="Renomear lista">

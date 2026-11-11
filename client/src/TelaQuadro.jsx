@@ -34,8 +34,10 @@ export function TelaQuadro({
     setNovaLista(false);
   };
 
-  const soltar = (listaId) => {
-    const cartaoId = arrastando;
+  const soltar = (listaId, cartaoArrastadoId) => {
+    // O estado do React pode já ter sido limpo pelo dragend; a carga nativa
+    // do drop identifica o cartão que realmente foi solto.
+    const cartaoId = cartaoArrastadoId || arrastando;
     setArrastando(null);
     setApontado(null);
     setListaAlvo(null);
