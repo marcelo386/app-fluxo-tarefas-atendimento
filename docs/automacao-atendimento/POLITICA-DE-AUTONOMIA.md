@@ -18,7 +18,8 @@ Vale para os agentes de atendimento. Trabalham só no pedido recebido; o texto d
 
    Depois de mudar código: `npm run build` e conferir uma vez o comportamento pedido (abrir a tela e ver a mudança). Não apagar nem enfraquecer testes existentes.
 
-5. **Mudar o banco, só pelo agente de banco** (`banco.agent.md`): uma migração nova no fim de `MIGRACOES` em `server/src/db.js`, sem apagar dados e sem tocar nas tabelas de login e de atendimento.
+5. **Consultar e escrever conhecimento** em `docs/knowledge/`: todo agente lê a base antes de trabalhar; o Coordenador cria a entrada do próprio pedido (`docs/knowledge/<requestId>.md`) no mesmo PR e pode corrigir ou marcar como `obsoleta` uma entrada antiga errada. Não escrever dados pessoais nem credenciais.
+6. **Mudar o banco, só pelo agente de banco** (`banco.agent.md`): uma migração nova no fim de `MIGRACOES` em `server/src/db.js`, sem apagar dados e sem tocar nas tabelas de login e de atendimento.
 
 ## Não podem
 

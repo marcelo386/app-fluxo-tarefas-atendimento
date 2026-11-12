@@ -45,3 +45,11 @@
 - **Por que antes chegava tudo no fim:** o coordenador só criava o relatório no último commit. Agora o prompt manda criar o relatório no primeiro marco e rodar `report_progress` a cada marco.
 - **Respostas reais:** o N1 não pode mandar aviso genérico ("recebemos/registramos"); cada mensagem precisa citar o que foi entendido, encontrado ou feito naquele marco. O app não tem nenhuma resposta automática.
 - **Ainda não faz:** mensagens digitadas no chat depois de abrir o ticket ficam só no app; não são enviadas à issue nem ao agente.
+
+## Base de conhecimento (`docs/knowledge/`)
+
+- **O que é:** uma entrada Markdown (frontmatter + Pedido, Causa, Solução, Como foi verificado, Para reutilizar) por pedido resolvido, no próprio repositório. Formato e regras em `docs/knowledge/README.md`; modelo em `_modelo.md`.
+- **Consulta:** todos os agentes leem e buscam na base antes de trabalhar e citam o `id` usado.
+- **Escrita:** o Coordenador cria `docs/knowledge/<requestId>.md` no mesmo PR (também em pedidos sem código). O controlador só libera a integração quando o arquivo existe no commit do PR.
+- **Retroativo:** PRs/issues já fechados: PR #2 + issue #1 → `req-9fcf2326.md` (único caso até agora).
+- **Limites:** PR feito por pessoa, ou issue fechada fora do fluxo, não gera entrada sozinho (usar `pr-<número>.md` à mão). Pedido sem código fica em PR rascunho que não é integrado, então a entrada dele só chega à `main` se alguém integrar o PR.

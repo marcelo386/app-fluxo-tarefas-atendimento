@@ -3,7 +3,7 @@
 //  1) atribui ao Copilot (custom_agent=coordenador), uma vez;
 //  2) lê o relatório JSON do PR como DADO (nunca executa código do PR) e comenta na issue:
 //     resumo interno + mensagem curta do N1, cada uma uma única vez (id estável);
-//  3) entrega: espera revisão ok + build verde do commit ATUAL; AUTO_MERGE=true integra esse commit
+//  3) entrega: espera revisão ok + build verde do commit ATUAL + entrada docs/knowledge/<requestId>.md; AUTO_MERGE=true integra esse commit
 //     (sem bypass das regras da branch), AUTO_MERGE=false deixa o PR para a demonstração;
 //  4) depois do merge na main: resposta final do N1 ("entrega") e fecha a issue;
 //  5) build/revisão falhou: UMA rodada de correção pedida ao Copilot no MESMO PR; se falhar de novo, pendente-instrutor.
@@ -153,6 +153,9 @@ export async function processar({ repo, numero, api, ensaio, autoMerge, log = co
         fase = "pendente-instrutor"; // falhou de novo depois da rodada: o instrutor decide
         if (!jaTem(marcaPendente(requestId))) await escrever("pendência para o instrutor", () => comentar(`${marcaPendente(requestId)}\n\nA correção automática não resolveu (${motivo}). Aguardando o instrutor no PR #${pr.number}.`));
       }
+    } else if (build === "verde" && revisao === "ok" && !(await api.get(`/repos/${repo}/contents/docs/knowledge/${requestId}.md?ref=${sha}`).then(() => true, () => false))) {
+      fase = "pr-aberto"; // todo PR gera conhecimento: falta docs/knowledge/<requestId>.md; espera o Copilot criar
+      log(`PR #${pr.number}: falta docs/knowledge/${requestId}.md; integração segurada.`);
     } else if (build === "verde" && revisao === "ok") {
       if (!autoMerge) {
         fase = "aguardando-merge"; // PR disponível para a demonstração

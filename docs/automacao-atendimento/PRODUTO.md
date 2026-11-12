@@ -16,6 +16,10 @@ Quadro de tarefas no estilo Trello. Roda local: interface React/Vite, API Node e
 - Sem contas, login, equipes ou compartilhamento de quadros.
 - Os dados ficam no banco SQLite local (`server/dados/`); não há nuvem.
 
+## Base de conhecimento
+
+Pedidos já resolvidos (causa, solução, arquivos) ficam em `docs/knowledge/`, uma entrada por pedido. Consulte antes de responder ou mexer no código.
+
 ## Onde está o código de produto
 
 Quadros, listas e cartões: `client/src/TelaQuadro.jsx`, `Lista.jsx`, `Cartao.jsx`, `ordem.js` e `server/src/quadros.js`. Telas, componentes e estilos: `client/src/*.jsx`, `componentes/` e os `.css` (veja a política). A API está descrita no `README.md`.
